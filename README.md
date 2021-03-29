@@ -16,6 +16,25 @@ $ conda activate simclr
 $ python run.py
 ```
 
+To get coco:
+
+```
+$ pip install cython
+$ git clone https://github.com/pdollar/coco/
+$ cd coco/PythonAPI
+$ make
+$ python setup.py install
+$ cd ../..
+$ rm -r coco
+$ snap install aria2c
+$ cd dataset/mscoco
+$ aria2c -x 16 -j 16 http://images.cocodataset.org/zips/train2017.zip
+$ aria2c -x 16 -j 16 http://images.cocodataset.org/zips/val2017.zip
+$ aria2c -x 16 -j 16 http://images.cocodataset.org/annotations/annotations_trainval2017.zip
+$ unzip *.zip
+$ rm *.zip
+```
+
 ## Config file
 
 Before running SimCLR, make sure you choose the correct running configurations. You can change the running configurations by passing keyword arguments to the ```run.py``` file.
