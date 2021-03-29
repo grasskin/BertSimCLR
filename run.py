@@ -68,11 +68,20 @@ def main():
 
     train_dataset = dataset.get_dataset(args.dataset_name, args.n_views)
 
+    valid_dataset = dataset.get_dataset(args.dataset_name+'valid', args.n_views)
+
     print(train_dataset)
+    print(valid_dataset)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True, drop_last=True)
+
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset, batch_size=args.batch_size, shuffle=True,
+        num_workers=args.workers, pin_memory=True, drop_last=True)
+
+    data_loaders = {"train": train_loader, "val": valid_loader}
 
     model = ResNetSimCLR(base_model=args.arch, out_dim=args.out_dim)
 
@@ -84,7 +93,7 @@ def main():
     #  It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
         simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
-        simclr.train(train_loader)
+        simclr.train(data_loaders)
 
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ class SimCLR(object):
         logits = logits / self.args.temperature
         return logits, labels
 
-    def train(self, train_loader):
+    def train(self, loaders):
 
         scaler = GradScaler(enabled=self.args.fp16_precision)
 
@@ -66,36 +66,64 @@ class SimCLR(object):
         logging.info(f"Training with gpu: {self.args.disable_cuda}.")
 
         for epoch_counter in range(self.args.epochs):
-            for images, _ in tqdm(train_loader):
-                images = torch.cat(images, dim=0)
+            for phase in ["train", "val"]:
+                if phase == "train":
+                    self.model.train(True)
+                else:
+                    self.model.train(False)
+                
+                running_loss = 0.0
+                running_1acc = 0.0
+                running_5acc = 0.0
 
-                images = images.to(self.args.device)
+                for images, _ in tqdm(loaders[phase]):
+                    if phase == "train":
+                        images = torch.cat(images, dim=0)
 
-                with autocast(enabled=self.args.fp16_precision):
-                    features = self.model(images)
-                    logits, labels = self.info_nce_loss(features)
-                    loss = self.criterion(logits, labels)
+                        images = images.to(self.args.device)
 
-                self.optimizer.zero_grad()
+                        with autocast(enabled=self.args.fp16_precision):
+                            features = self.model(images)
+                            logits, labels = self.info_nce_loss(features)
+                            loss = self.criterion(logits, labels)
 
-                scaler.scale(loss).backward()
+                        self.optimizer.zero_grad()
 
-                scaler.step(self.optimizer)
-                scaler.update()
+                        scaler.scale(loss).backward()
 
-                if n_iter % self.args.log_every_n_steps == 0:
+                        scaler.step(self.optimizer)
+                        scaler.update()
+                    else:
+                        with torch.no_grad():
+                            images = torch.cat(images, dim=0)
+
+                            images = images.to(self.args.device)
+
+                            with autocast(enabled=self.args.fp16_precision):
+                                features = self.model(images)
+                                logits, labels = self.info_nce_loss(features)
+                                loss = self.criterion(logits, labels)
+
                     top1, top5 = accuracy(logits, labels, topk=(1, 5))
-                    self.writer.add_scalar('loss', loss, global_step=n_iter)
-                    self.writer.add_scalar('acc/top1', top1[0], global_step=n_iter)
-                    self.writer.add_scalar('acc/top5', top5[0], global_step=n_iter)
-                    self.writer.add_scalar('learning_rate', self.scheduler.get_lr()[0], global_step=n_iter)
 
-                n_iter += 1
+                    running_loss += loss
+                    running_1acc += top1[0]
+                    running_5acc += top5[0]
 
-            # warmup for the first 10 epochs
-            if epoch_counter >= 10:
-                self.scheduler.step()
-            logging.debug(f"Epoch: {epoch_counter}\tLoss: {loss}\tTop1 accuracy: {top1[0]}")
+                    del features, logits, labels
+
+                loss = running_loss / len(loaders[phase])
+                acc1 = running_1acc / len(loaders[phase])
+                acc5 = running_5acc / len(loaders[phase])
+
+                self.writer.add_scalar('loss/' + phase, loss, global_step=epoch_counter)
+                self.writer.add_scalar('top1/' + phase, acc1, global_step=epoch_counter)
+                self.writer.add_scalar('top5/' + phase, acc5, global_step=epoch_counter)
+
+                # warmup for the first 10 epochs
+                if epoch_counter >= 10:
+                    self.scheduler.step()
+                logging.debug(f"Epoch: {epoch_counter}\tLoss: {loss}\tTop1 accuracy: {top1[0]}")
 
         logging.info("Training has finished.")
         # save model checkpoints

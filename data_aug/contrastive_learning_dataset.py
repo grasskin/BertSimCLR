@@ -103,6 +103,11 @@ class ContrastiveLearningDataset:
                                             annFile = os.path.join(self.root_folder, 'mscoco', 'annotations', 'captions_train2017.json'),
                                             transform=ContrastiveLearningViewGenerator(
                                                               self.get_simclr_pipeline_transform(96),
+                                                              n_views)),
+                          'mscocovalid': lambda: CocoDetection(os.path.join(self.root_folder, 'mscoco', 'val2017'), 
+                                            annFile = os.path.join(self.root_folder, 'mscoco', 'annotations', 'captions_val2017.json'),
+                                            transform=ContrastiveLearningViewGenerator(
+                                                              self.get_simclr_pipeline_transform(96),
                                                               n_views))}
 
         try:
