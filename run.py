@@ -2,9 +2,9 @@ import argparse
 import torch
 import torch.backends.cudnn as cudnn
 from torchvision import models
-from data_aug.contrastive_learning_dataset import ContrastiveLearningDataset
-from models.resnet_simclr import ResNetSimCLR
-from simclr import SimCLR
+from data_aug.contrastive_learning_dataset import ContrastiveLearningDataset, coco_collate_fn
+from models.resnet_simclr import ResNetBertSimCLR, ResNetSimCLR
+from simclr import BertSimCLR, SimCLR
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -50,6 +50,8 @@ parser.add_argument('--temperature', default=0.07, type=float,
 parser.add_argument('--n-views', default=2, type=int, metavar='N',
                     help='Number of views for contrastive learning training.')
 parser.add_argument('--gpu-index', default=0, type=int, help='Gpu index.')
+parser.add_argument('-C', default=1, type=int, help='Amount of multimodal loss.')
+parser.add_argument('--eval', default=False, type=bool, help='Run linear classifier evaluation.')
 
 
 def main():
@@ -60,6 +62,7 @@ def main():
         args.device = torch.device('cuda')
         cudnn.deterministic = True
         cudnn.benchmark = True
+        torch.multiprocessing.set_start_method('spawn')
     else:
         args.device = torch.device('cpu')
         args.gpu_index = -1
@@ -70,31 +73,35 @@ def main():
 
     valid_dataset = dataset.get_dataset(args.dataset_name+'valid', args.n_views)
 
-    print(train_dataset)
-    print(valid_dataset)
-
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True, drop_last=True)
+        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=coco_collate_fn)
 
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True, drop_last=True)
+        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=coco_collate_fn)
+
 
     data_loaders = {"train": train_loader, "val": valid_loader}
 
-    model = ResNetSimCLR(base_model=args.arch, out_dim=args.out_dim)
+    model = ResNetBertSimCLR(base_model=args.arch, out_dim=args.out_dim)
+
+    classifier_model = torch.nn.Sequential(torch.nn.Linear(768, 10))
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
+
+    classifier_optimizer = torch.optim.Adam(classifier_model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader), eta_min=0,
                                                            last_epoch=-1)
 
     #  It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
-        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
-        simclr.train(data_loaders)
-
+        simclr = BertSimCLR(model=model, optimizer=optimizer, scheduler=scheduler, classifier_model=classifier_optimizer, classifier_optimizer=classifier_optimizer, args=args)
+        if args.eval:
+            simclr.train_linear_classifier(args.epochs, data_loaders)
+        else:
+            simclr.train(data_loaders)
 
 if __name__ == "__main__":
     main()
