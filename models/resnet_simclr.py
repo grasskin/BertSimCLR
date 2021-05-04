@@ -4,6 +4,7 @@ import torchvision.models as models
 from exceptions.exceptions import InvalidBackboneError
 
 
+<<<<<<< HEAD
 class ResNetBertSimCLR(nn.Module):
 
     def __init__(self, base_model, out_dim):
@@ -39,6 +40,8 @@ class ResNetBertSimCLR(nn.Module):
 
         return visual_embedding1, visual_embedding2, sentence_embedding
 
+=======
+>>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
 class ResNetSimCLR(nn.Module):
 
     def __init__(self, base_model, out_dim):
@@ -62,4 +65,8 @@ class ResNetSimCLR(nn.Module):
             return model
 
     def forward(self, x):
+<<<<<<< HEAD
         return self.backbone(x)
+=======
+        return self.backbone(x)
+>>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b

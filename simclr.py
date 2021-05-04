@@ -12,6 +12,7 @@ from utils import save_config_file, accuracy, save_checkpoint
 torch.manual_seed(0)
 
 
+<<<<<<< HEAD
 class BertSimCLR(object):
 
     def __init__(self, *args, **kwargs):
@@ -187,6 +188,8 @@ class BertSimCLR(object):
                 self.writer.add_scalar('classifier_top1/' + phase, acc1, global_step=epoch_counter)
                 self.writer.add_scalar('classifier_top5/' + phase, acc5, global_step=epoch_counter)
 
+=======
+>>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
 class SimCLR(object):
 
     def __init__(self, *args, **kwargs):
@@ -281,4 +284,8 @@ class SimCLR(object):
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
         }, is_best=False, filename=os.path.join(self.writer.log_dir, checkpoint_name))
+<<<<<<< HEAD
         logging.info(f"Model checkpoint and metadata has been saved at {self.writer.log_dir}.")
+=======
+        logging.info(f"Model checkpoint and metadata has been saved at {self.writer.log_dir}.")
+>>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
