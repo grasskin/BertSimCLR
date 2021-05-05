@@ -1,8 +1,5 @@
 datasets/
 __pycache__/
 .vscode/
-<<<<<<< HEAD
 **/__pycache__/
 runs/
-=======
->>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b

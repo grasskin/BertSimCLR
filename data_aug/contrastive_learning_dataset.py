@@ -5,7 +5,6 @@ from data_aug.view_generator import ContrastiveLearningViewGenerator
 from exceptions.exceptions import InvalidDatasetSelection
 from torch.utils.data import Dataset
 from PIL import Image
-<<<<<<< HEAD
 import torch
 from tqdm import tqdm
 import numpy as np
@@ -15,10 +14,6 @@ from sentence_transformers import SentenceTransformer
 import random
 import os
 import json
-=======
-
-import os
->>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
 
 class CocoDetection(Dataset):
     """`MS Coco Detection <http://mscoco.org/dataset/#detections-challenge2016>`_ Dataset.
@@ -32,18 +27,13 @@ class CocoDetection(Dataset):
             target and transforms it.
     """
 
-<<<<<<< HEAD
     def __init__(self, root, annFile, tokenizer, transform=None, target_transform=None, generateEncodings=True, encodingPath=''):
-=======
-    def __init__(self, root, annFile, transform=None, target_transform=None):
->>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
         from pycocotools.coco import COCO
         self.root = root
         self.coco = COCO(annFile)
         self.ids = list(self.coco.imgs.keys())
         self.transform = transform
         self.target_transform = target_transform
-<<<<<<< HEAD
         self.tokenizer = tokenizer
 
 
@@ -65,8 +55,6 @@ class CocoDetection(Dataset):
             self.targets = json.load(open(encodingPath, 'r'))
             for target in self.targets:
                 self.targets[target] = np.array(self.targets[target], dtype=np.float32)
-=======
->>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
 
     def __getitem__(self, index):
         """
@@ -90,17 +78,11 @@ class CocoDetection(Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-<<<<<<< HEAD
         target = random.choice(target)
 
         target_encoding = torch.from_numpy(self.targets[target['caption']])
 
         return (*img, target_encoding)
-=======
-        target = [target[0]]
-
-        return img, target
->>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
 
 
     def __len__(self):
@@ -116,7 +98,6 @@ class CocoDetection(Dataset):
         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
 
-<<<<<<< HEAD
 def coco_collate_fn(data):
     """Creates mini-batch tensors from the list of tuples (image, caption).
     
@@ -144,9 +125,6 @@ def coco_collate_fn(data):
     captions = torch.stack(captions, 0)
 
     return images, images2, captions
-=======
-
->>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
 
 
 class ContrastiveLearningDataset:
@@ -179,7 +157,6 @@ class ContrastiveLearningDataset:
                                                           download=True),
                           'mscoco': lambda: CocoDetection(os.path.join(self.root_folder, 'mscoco', 'train2017'), 
                                             annFile = os.path.join(self.root_folder, 'mscoco', 'annotations', 'captions_train2017.json'),
-<<<<<<< HEAD
                                             tokenizer= SentenceTransformer('bert-base-nli-mean-tokens'),
                                             transform=ContrastiveLearningViewGenerator(
                                                               self.get_simclr_pipeline_transform(96),
@@ -194,11 +171,6 @@ class ContrastiveLearningDataset:
                                                               n_views),
                                                               encodingPath=os.path.join(self.root_folder,'mscoco', 'encoded_captions_val2017.json'),
                                                               generateEncodings=False)}
-=======
-                                            transform=ContrastiveLearningViewGenerator(
-                                                              self.get_simclr_pipeline_transform(96),
-                                                              n_views))}
->>>>>>> 43e3ab9360df231085b82af3be62b32b26f9f89b
 
         try:
             dataset_fn = valid_datasets[name]
