@@ -53,6 +53,8 @@ For 16-bit precision GPU training, there **NO** need to to install [NVIDIA apex]
 
 Feature evaluation is done using a linear model protocol. 
 
+``python run.py -data ./datasets -dataset-name mscoco --log-every-n-steps 100 --epochs 100 -j 1 -b 256 --eval True --saved-path 'runs/best/checkpoint_0068.pth.tar'``
+
 First, we learned features using SimCLR on the ```STL10 unsupervised``` set. Then, we train a linear classifier on top of the frozen features from SimCLR. The linear model is trained on features extracted from the ```STL10 train``` set and evaluated on the ```STL10 test``` set. 
 
 Check the [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/sthalles/SimCLR/blob/simclr-refactor/feature_eval/mini_batch_logistic_regression_evaluator.ipynb) notebook for reproducibility.

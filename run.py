@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description='PyTorch SimCLR')
 parser.add_argument('-data', metavar='DIR', default='./datasets',
                     help='path to dataset')
 parser.add_argument('-dataset-name', default='stl10',
-                    help='dataset name', choices=['stl10', 'cifar10', 'mscoco'])
+                    help='dataset name', choices=['stl10', 'cifar10', 'mscoco', 'mscocobaseline'])
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
@@ -55,6 +55,7 @@ parser.add_argument('--gpu-index', default=0, type=int, help='Gpu index.')
 parser.add_argument('-C', default=1, type=int, help='Amount of multimodal loss.')
 parser.add_argument('--eval', default=False, type=bool, help='Run linear classifier evaluation.')
 parser.add_argument('--saved-path', default='', help='Path to saved checkpoint.')
+parser.add_argument('--baseline', default=False, type=bool, help='Run baseline SimCLR training')
 
 
 def main():
@@ -73,20 +74,25 @@ def main():
     if args.eval:
         # Load pretrained model and cifar10
 
-        dataset = CIFAR10(root='datasets/cifar10', download=True, transform=transforms.ToTensor())
-        train_dataset = CIFAR10(root='datasets/cifar10', train=True, transform=transforms.ToTensor())
-        valid_dataset = CIFAR10(root='datasets/cifar10', train=False, transform=transforms.ToTensor())
+        cifar_transforms = transforms.Compose([transforms.Resize(96), transforms.ToTensor()])
+        dataset = CIFAR10(root='datasets/cifar10', download=True, transform=cifar_transforms)
+        train_dataset = CIFAR10(root='datasets/cifar10', train=True, transform=cifar_transforms)
+        valid_dataset = CIFAR10(root='datasets/cifar10', train=False, transform=cifar_transforms)
 
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
                                           shuffle=True, num_workers=args.workers)
         valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=args.batch_size,
                                          shuffle=False, num_workers=args.workers)
+        if not args.baseline:
+            model = ResNetBertSimCLR(base_model=args.arch, out_dim=args.out_dim)
+            checkpoint = torch.load(args.saved_path)
+            model.load_state_dict(checkpoint['state_dict'])
+        else:
+            model = ResNetSimCLR(base_model=args.arch, out_dim=args.out_dim)
+            checkpoint = torch.load(args.saved_path)
+            model.load_state_dict(checkpoint['state_dict'])           
 
-        model = ResNetBertSimCLR(base_model=args.arch, out_dim=args.out_dim)
-        checkpoint = torch.load(args.saved_path)
-        model.load_state_dict(checkpoint['state_dict'])
-
-        classifier_model = torch.nn.Sequential(torch.nn.Linear(768, 10))
+        classifier_model = torch.nn.Sequential(torch.nn.Linear(128, 10))
         classifier_optimizer = torch.optim.Adam(classifier_model.parameters(), args.lr, weight_decay=args.weight_decay)
 
         optimizer = None
@@ -97,30 +103,60 @@ def main():
         train_dataset = dataset.get_dataset(args.dataset_name, args.n_views)
         valid_dataset = dataset.get_dataset(args.dataset_name+'valid', args.n_views)
 
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=True,
-            num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=coco_collate_fn)
-        valid_loader = torch.utils.data.DataLoader(
-            valid_dataset, batch_size=args.batch_size, shuffle=True,
-            num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=coco_collate_fn)
+        if not args.baseline:
+            train_loader = torch.utils.data.DataLoader(
+                train_dataset, batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=coco_collate_fn)
+            valid_loader = torch.utils.data.DataLoader(
+                valid_dataset, batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=coco_collate_fn)
+            model = ResNetBertSimCLR(base_model=args.arch, out_dim=args.out_dim)
+        else:
+            train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True, drop_last=True)
 
-        model = ResNetBertSimCLR(base_model=args.arch, out_dim=args.out_dim)
+            valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True,
+                num_workers=args.workers, pin_memory=True, drop_last=True)
+            model = ResNetSimCLR(base_model=args.arch, out_dim=args.out_dim)
+
+        
         optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader), eta_min=0,
                                                            last_epoch=-1)
 
+        # emergency fix
+        """
+        model.to(args.device)
+        checkpoint = torch.load('/home/gabriel/Desktop/Projects/SimCLR/runs/nextbase/checkpoint_0018.pth.tar', map_location="cuda:0")
+        model_state = checkpoint['state_dict']#.to(args.device)
+        opt_state = checkpoint['optimizer']#.to(args.device)
+        model.load_state_dict(model_state)
+        optimizer.load_state_dict(opt_state)
+        model.to(args.device)
+        """
+
+
         classifier_model = None
         classifier_optimizer = None
+
+    #print(model.visual_backbone)
 
     data_loaders = {"train": train_loader, "val": valid_loader}
 
     #  It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
-        simclr = BertSimCLR(model=model, optimizer=optimizer, scheduler=scheduler, classifier_model=classifier_optimizer, classifier_optimizer=classifier_optimizer, args=args)
-        if args.eval:
-            simclr.train_linear_classifier(args.epochs, data_loaders)
+        if not args.baseline:
+            simclr = BertSimCLR(model=model, optimizer=optimizer, scheduler=scheduler, classifier_model=classifier_model, classifier_optimizer=classifier_optimizer, args=args)
+            if args.eval:
+                simclr.train_linear_classifier(args.epochs, data_loaders)
+            else:
+                simclr.train(data_loaders)
         else:
-            simclr.train(data_loaders)
+            simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, classifier_model=classifier_model, classifier_optimizer=classifier_optimizer, args=args)
+            if args.eval:
+                simclr.train_linear_classifier(args.epochs, data_loaders)
+            else:
+                simclr.train(data_loaders)
 
 if __name__ == "__main__":
     main()
