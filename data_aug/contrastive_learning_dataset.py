@@ -202,17 +202,18 @@ class ContrastiveLearningDataset:
         return data_transforms
 
     def get_dataset(self, name, n_views):
+        #TODO upload encoded captions to drive/add instructions to README
         valid_datasets = {'cifar10': lambda: datasets.CIFAR10(self.root_folder, train=True,
                                                               transform=ContrastiveLearningViewGenerator(
                                                                   self.get_simclr_pipeline_transform(32),
                                                                   n_views),
-                                                              download=True),
+                                                              download=False),
 
                           'stl10': lambda: datasets.STL10(self.root_folder, split='unlabeled',
                                                           transform=ContrastiveLearningViewGenerator(
                                                               self.get_simclr_pipeline_transform(96),
                                                               n_views),
-                                                          download=True),
+                                                          download=False),
                           'mscoco': lambda: CocoDetection(os.path.join(self.root_folder, 'mscoco', 'train2017'), 
                                             annFile = os.path.join(self.root_folder, 'mscoco', 'annotations', 'captions_train2017.json'),
                                             tokenizer= SentenceTransformer('bert-base-nli-mean-tokens'),

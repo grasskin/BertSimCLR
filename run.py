@@ -4,9 +4,12 @@ import torch.backends.cudnn as cudnn
 from torchvision import models
 from data_aug.contrastive_learning_dataset import ContrastiveLearningDataset, coco_collate_fn
 from models.resnet_simclr import ResNetBertSimCLR, ResNetSimCLR
+import faulthandler; faulthandler.enable()
 from simclr import BertSimCLR, SimCLR
 from torchvision.datasets import CIFAR10
+
 from torchvision import transforms
+import torch.nn as nn
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -15,17 +18,21 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch SimCLR')
 parser.add_argument('-data', metavar='DIR', default='./datasets',
                     help='path to dataset')
-parser.add_argument('-dataset-name', default='stl10',
+parser.add_argument('-d', '--dataset-name', default='stl10',
                     help='dataset name', choices=['stl10', 'cifar10', 'mscoco', 'mscocobaseline'])
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
+parser.add_argument('-g', '--gpus', default=1, type=int,
+                        help='number of gpus per node')
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
 parser.add_argument('-j', '--workers', default=12, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=210, type=int, metavar='N',
                     help='number of total epochs to run')
+parser.add_argument('-n', '--nodes', default=1,
+                        type=int, metavar='N')
 parser.add_argument('-b', '--batch-size', default=256, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
@@ -61,6 +68,7 @@ parser.add_argument('--baseline', default=False, type=bool, help='Run baseline S
 def main():
     args = parser.parse_args()
     assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
+
     # check if gpu training is available
     if not args.disable_cuda and torch.cuda.is_available():
         args.device = torch.device('cuda')
@@ -125,15 +133,14 @@ def main():
                                                            last_epoch=-1)
 
         # emergency fix
-        """
+
         model.to(args.device)
-        checkpoint = torch.load('/home/gabriel/Desktop/Projects/SimCLR/runs/nextbase/checkpoint_0018.pth.tar', map_location="cuda:0")
+        checkpoint = torch.load('/home/pliang/gabriel/BertSimCLR/runs/Sep09_19-15-40_quad-p40-0-1/checkpoint_0048.pth.tar')#, map_location="cuda:0")
         model_state = checkpoint['state_dict']#.to(args.device)
         opt_state = checkpoint['optimizer']#.to(args.device)
         model.load_state_dict(model_state)
         optimizer.load_state_dict(opt_state)
         model.to(args.device)
-        """
 
 
         classifier_model = None

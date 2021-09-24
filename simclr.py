@@ -1,3 +1,4 @@
+#from torch.utils.tensorboard import SummaryWriter
 import logging
 import os
 import sys
@@ -5,11 +6,9 @@ import sys
 import torch
 import torch.nn.functional as F
 from torch.cuda.amp import GradScaler, autocast
-from torch.utils.tensorboard import SummaryWriter
+
 from tqdm import tqdm
 from utils import save_config_file, accuracy, save_checkpoint
-
-torch.manual_seed(0)
 
 
 class BertSimCLR(object):
@@ -21,8 +20,9 @@ class BertSimCLR(object):
         self.classifier_optimizer = kwargs['classifier_optimizer']
         self.scheduler = kwargs['scheduler']
         self.C = self.args.C
-        self.writer = SummaryWriter()
-        logging.basicConfig(filename=os.path.join(self.writer.log_dir, 'training.log'), level=logging.DEBUG)
+        #self.writer = SummaryWriter()
+        self.logdir = "200runs"
+        logging.basicConfig(filename=os.path.join(self.logdir,'training.log'), level=logging.DEBUG)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
         if self.args.eval:
             self.linear_classifier = kwargs['classifier_model'].to(self.args.device)
@@ -82,7 +82,7 @@ class BertSimCLR(object):
         scaler = GradScaler(enabled=self.args.fp16_precision)
 
         # save config file
-        save_config_file(self.writer.log_dir, self.args)
+        #save_config_file(self.writer.log_dir, self.args)
 
         n_iter = 0
         logging.info(f"Start SimCLR training for {self.args.epochs} epochs.")
@@ -123,9 +123,12 @@ class BertSimCLR(object):
                 #acc1 = running_1acc / len(loaders[phase])
                 #acc5 = running_5acc / len(loaders[phase])
 
-                self.writer.add_scalar('loss/' + phase, loss, global_step=epoch_counter)
+                #self.writer.add_scalar('loss/' + phase, loss, global_step=epoch_counter)
                 #self.writer.add_scalar('top1/' + phase, acc1, global_step=epoch_counter)
                 #self.writer.add_scalar('top5/' + phase, acc5, global_step=epoch_counter)
+                logging.debug(f"Epoch: {epoch_counter} loss/{phase} {loss}")
+                #logging.debug(f"Epoch: {epoch_counter} top1/{phase} {acc1}")
+                #logging.debug(f"Epoch: {epoch_counter} top5/{phase} {acc5}")
 
                 # warmup for the first 10 epochs
                 if epoch_counter >= 10:
@@ -137,11 +140,11 @@ class BertSimCLR(object):
                 'arch': self.args.arch,
                 'state_dict': self.model.state_dict(),
                 'optimizer': self.optimizer.state_dict(),
-            }, is_best=False, filename=os.path.join(self.writer.log_dir, checkpoint_name))
+            }, is_best=False, filename=os.path.join(self.logdir, checkpoint_name))
 
         logging.info("Training has finished.")
         # save model checkpoints
-        logging.info(f"Model checkpoint and metadata has been saved at {self.writer.log_dir}.")
+        logging.info(f"Model checkpoint and metadata has been saved at {self.log_dir}.")
 
     def classifier_forward(self, x, labels):
         embedding = self.model.visual_backbone(x)
@@ -186,9 +189,9 @@ class BertSimCLR(object):
                 acc1 = running_1acc / len(loaders[phase])
                 acc5 = running_5acc / len(loaders[phase])
 
-                self.writer.add_scalar('classifier_loss/' + phase, loss, global_step=epoch)
-                self.writer.add_scalar('classifier_top1/' + phase, acc1, global_step=epoch)
-                self.writer.add_scalar('classifier_top5/' + phase, acc5, global_step=epoch)
+                logging.debug(f"Epoch: {epoch_counter} classifier_loss/{phase} {loss}")
+                logging.debug(f"Epoch: {epoch_counter} top1/{phase} {acc1}")
+                logging.debug(f"Epoch: {epoch_counter} top5/{phase} {acc5}")
 
 class SimCLR(object):
 
@@ -197,7 +200,6 @@ class SimCLR(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
-        self.writer = SummaryWriter()
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, 'training.log'), level=logging.DEBUG)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
         if self.args.eval:
